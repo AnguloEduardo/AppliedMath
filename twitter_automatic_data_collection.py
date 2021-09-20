@@ -140,103 +140,92 @@ def start_extraction(search_date, destination_folder):
 
     # Collect N Tweets with id, time, text, user data, likes, retweets and location (when available) FOR EACH OPERATOR
 
-    for operator in ['FIB_EXTRA', 'CL', 'TLF', 'TA']:
+    # Create empty lists
+    tweet_id = []
+    tweet_id_str = []
+    tweet_time = []
+    tweet_text = []
+    user_id = []
+    user_name = []
+    user_screen_name = []
+    likes = []
+    retweets = []
+    followers = []
+    in_reply_to_screen_name = []
+    in_reply_to_status_id_str = []
+    location = []
 
-        # Create empty lists
-        tweet_id = []
-        tweet_id_str = []
-        tweet_time = []
-        tweet_text = []
-        user_id = []
-        user_name = []
-        user_screen_name = []
-        likes = []
-        retweets = []
-        followers = []
-        in_reply_to_screen_name = []
-        in_reply_to_status_id_str = []
-        location = []
+    query = '(#vaccine OR #COVID19 OR #NoVaccine OR #VaccineSideEffects)'
 
-        #  Choose the query according to operator name
-        if operator == 'FIB_EXTRA':
-            query = '(from:CableFibertel OR to:CableFibertel OR @CableFibertel OR fibertel)'
-        elif operator == 'CL':
-            query = '(from:ClaroArgentina OR to:ClaroArgentina OR @ClaroArgentina)'
-        elif operator == 'TLF':
-            query = '(from:MovistarArg OR to:MovistarArg OR @MovistarArg OR from:Telefonica_Ar OR to:Telefonica_Ar OR @Telefonica_Ar)'
-        elif operator == 'TA':
-            query = '(from:PersonalAr OR to:PersonalAr OR @PersonalAr)'
-        else:
-            query = 'NULL'
-        print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        print('Querying for ' + operator + ' on ' + str(search_date) + ' with ' + query)
+    print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print('Querying for ' + ' on ' + str(search_date) + ' with ' + query)
 
-        cursor = tweepy.Cursor(api.search, since_id=None, q=query, until=until_date, tweet_mode='extended').items(
-            number_of_tweets)
+    cursor = tweepy.Cursor(api.search, since_id=None, q=query, until=until_date, tweet_mode='extended').items(
+        number_of_tweets)
 
-        while True:
-            try:
-                i = cursor.next()
+    while True:
+        try:
+            i = cursor.next()
 
-                if (i.created_at.date() == search_date):
-                    tweet_id.append(i.id)
-                    tweet_id_str.append(i.id_str)
-                    tweet_time.append(i.created_at)
-                    tweet_text.append(i.full_text)
-                    user_id.append(i.user.id)
-                    user_name.append(i.user.name)
-                    user_screen_name.append(i.user.screen_name)
-                    likes.append(i.favorite_count)
-                    retweets.append(i.retweet_count)
-                    followers.append(i.user.followers_count)
-                    in_reply_to_screen_name.append(i.in_reply_to_screen_name)
-                    in_reply_to_status_id_str.append(i.in_reply_to_status_id_str)
+            if (i.created_at.date() == search_date):
+                tweet_id.append(i.id)
+                tweet_id_str.append(i.id_str)
+                tweet_time.append(i.created_at)
+                tweet_text.append(i.full_text)
+                user_id.append(i.user.id)
+                user_name.append(i.user.name)
+                user_screen_name.append(i.user.screen_name)
+                likes.append(i.favorite_count)
+                retweets.append(i.retweet_count)
+                followers.append(i.user.followers_count)
+                in_reply_to_screen_name.append(i.in_reply_to_screen_name)
+                in_reply_to_status_id_str.append(i.in_reply_to_status_id_str)
 
-                    if (i.place is not None):
-                        location.append(i.place.full_name)
-                    elif (i.user.location != ""):
-                        location.append(i.user.location)
-                    else:
-                        location.append('No defined')
+                if (i.place is not None):
+                    location.append(i.place.full_name)
+                elif (i.user.location != ""):
+                    location.append(i.user.location)
                 else:
-                    break
-            except tweepy.TweepError as e:
-                print(datetime.now())
-                print('Twitter error: ', e.args)
-                print('PAUSED --> On ' + operator + ' collecting ' + str(len(tweet_id)) + ' tweets and CONTINUING')
-                tm.sleep(60 * 15)
-                continue
-            except StopIteration:
+                    location.append('No defined')
+            else:
                 break
+        except tweepy.TweepError as e:
+            print(datetime.now())
+            print('Twitter error: ', e.args)
+            print('PAUSED --> On ' + ' collecting ' + str(len(tweet_id)) + ' tweets and CONTINUING')
+            tm.sleep(60 * 15)
+            continue
+        except StopIteration:
+            break
 
-        # If len(list) > number_of_tweets --> no fue suficiente, hay que buscar de nuevo con otro limite.
-        print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        print('For ' + operator + ' collected ' + str(len(tweet_id)) + ' tweets')
-        print()
-        print()
+    # If len(list) > number_of_tweets --> no fue suficiente, hay que buscar de nuevo con otro limite.
+    print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print('For ' + ' collected ' + str(len(tweet_id)) + ' tweets')
+    print()
+    print()
 
-        df = pd.DataFrame({
-            'tweet_id': tweet_id,
-            'tweet_id_str': tweet_id_str,
-            'tweet_time': tweet_time,
-            'tweet_text': tweet_text,
-            'user_id': user_id,
-            'user_name': user_name,
-            'user_screen_name': user_screen_name,
-            'location': location,
-            'likes': likes,
-            'retweets': retweets,
-            'followers': followers,
-            'in_reply_to_screen_name': in_reply_to_screen_name,
-            'in_reply_to_status_id_str': in_reply_to_status_id_str,
-        })
+    df = pd.DataFrame({
+        'tweet_id': tweet_id,
+        'tweet_id_str': tweet_id_str,
+        'tweet_time': tweet_time,
+        'tweet_text': tweet_text,
+        'user_id': user_id,
+        'user_name': user_name,
+        'user_screen_name': user_screen_name,
+        'location': location,
+        'likes': likes,
+        'retweets': retweets,
+        'followers': followers,
+        'in_reply_to_screen_name': in_reply_to_screen_name,
+        'in_reply_to_status_id_str': in_reply_to_status_id_str,
+    })
 
-        #  Replace \n by space, to remove line jumps
-        df = df.replace('\n', '', regex=True)
+    #  Replace \n by space, to remove line jumps
+    df = df.replace('\n', '', regex=True)
 
-        #  Save DataFrame as .tsv
-        df.to_csv(destination_folder + operator + '_' + str(search_date).replace('-', '_') + '.tsv', index=False,
-                  encoding='utf_8_sig', sep='\t')
+    #  Save DataFrame as .tsv
+    df.to_csv(destination_folder + '_' + str(search_date).replace('-', '_') + '.tsv', index=False,
+              encoding='utf_8_sig', sep='\t')
 
 
 if __name__ == '__main__':
