@@ -121,9 +121,7 @@ def extract_twitter_data(warehouse_path, extract_data_from):
 
 def start_extraction(search_date, destination_folder):
     import tweepy
-    import pandas as pd
-    import time as tm
-    from datetime import date, datetime, timedelta
+    from datetime import datetime, timedelta
 
     API_KEY, API_SECRET_KEY, ACCESS_TOKEN, ACCESS_TOKEN_SECRET = read_api_keys('secrets/twitter_credentials.json')
 
@@ -133,13 +131,35 @@ def start_extraction(search_date, destination_folder):
     api = tweepy.API(auth)
 
     # Search configuration
-    number_of_tweets = 10  # you decide the limit of tweets to extract per day
     until_date = str(search_date + timedelta(days=1))
     print('Search range: from', search_date, ' to ', until_date)
     print()
 
+    states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN',
+              'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV',
+              'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN',
+              'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+
+    al_cities = ['33.516024,-86.812082,60mi',  # Birmingham
+                 '32.375103,-86.306826,60mi',  # Montgomery
+                 '34.726924,-86.584158,60mi',  # Huntsville
+                 '30.693869,-88.041501,60mi',  # Mobile
+                 '33.208951,-87.535222,60mi']  # Tuscaloosa
+    ak_cities = ['0,0,60mi',  # Anchorage
+                 '0,0,60mi',  # Juneau
+                 '0,0,60mi',  # Fairbanks
+                 '0,0,60mi',  # Badger
+                 '0,0,60mi']  # Knik-Fairview
+    az_cities = ['0,0,60mi',  # Phoenix
+                 '0,0,60mi',  # Tucson
+                 '0,0,60mi',  # Mesa
+                 '0,0,60mi',  # Chandler
+                 '0,0,60mi']  # Scottsdale
+
+    all_cities = {"AL": al_cities, "AK": ak_cities, "AZ": az_cities}
+
     # Collect N Tweets with id, time, text, user data, likes, retweets and location (when available) FOR EACH OPERATOR
-    for operator in ['SFO', 'LA', 'SANDIEGO', 'SACRAMENTO']:
+    for state in states:
 
         # Create empty lists
         tweet_id = []
@@ -156,88 +176,107 @@ def start_extraction(search_date, destination_folder):
         in_reply_to_status_id_str = []
         location = []
 
-        language = 'en'
-        query = '#vaccine OR #COVID19 OR #NoVaccine OR #VaccineSideEffects'
-        coordinates = '37.771105, -122.426913, 100km'
+        for index in range(5):
+            cities = all_cities[state]
+            coordinates = cities[index]
 
-        if operator == 'SFO':
-            coordinates = '37.771105, -122.426913, 100km'
-        elif operator == 'LA':
-            coordinates = '34.051863, -118.243322, 100km'
-        elif operator == 'SANDIEGO':
-            coordinates = '32.715461, -117.161336, 100km'
-        elif operator == 'SACRAMENTO':
-            coordinates = '38.575632, -121.490922, 100km'
+            tweets_processing(state, search_date, tweet_id, tweet_id_str, tweet_time, tweet_text, user_id,
+                              user_name, user_screen_name, location, likes, retweets, followers,
+                              in_reply_to_screen_name, in_reply_to_status_id_str, api, coordinates)
 
-        print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        print('Querying for ' + operator + ' on ' + str(search_date) + ' with ' + query)
+        csv_file(state, destination_folder, search_date, tweet_id, tweet_id_str, tweet_time, tweet_text, user_id,
+                 user_name, user_screen_name, location, likes, retweets, followers, in_reply_to_screen_name,
+                 in_reply_to_status_id_str)
 
-        cursor = tweepy.Cursor(api.search, since_id=None, q=query, geocode=coordinates, lang=language, until=until_date,
-                               tweet_mode='extended', wait_on_rate_limit=True).items(number_of_tweets)
 
-        while True:
-            try:
-                i = cursor.next()
+def tweets_processing(operator, search_date, tweet_id, tweet_id_str, tweet_time, tweet_text, user_id,
+                      user_name, user_screen_name, location, likes, retweets, followers, in_reply_to_screen_name,
+                      in_reply_to_status_id_str, api, coordinates):
+    import time as tm
+    import tweepy
+    from datetime import datetime, timedelta
 
-                if (i.created_at.date() == search_date):
-                    tweet_id.append(i.id)
-                    tweet_id_str.append(i.id_str)
-                    tweet_time.append(i.created_at)
-                    tweet_text.append(i.full_text)
-                    user_id.append(i.user.id)
-                    user_name.append(i.user.name)
-                    user_screen_name.append(i.user.screen_name)
-                    likes.append(i.favorite_count)
-                    retweets.append(i.retweet_count)
-                    followers.append(i.user.followers_count)
-                    in_reply_to_screen_name.append(i.in_reply_to_screen_name)
-                    in_reply_to_status_id_str.append(i.in_reply_to_status_id_str)
+    language = 'en'
+    query = '#vaccine OR #COVID19 OR #NoVaccine OR #VaccineSideEffects'
+    number_of_tweets = 10  # you decide the limit of tweets to extract per day
+    until_date = str(search_date + timedelta(days=1))
 
-                    if (i.place is not None):
-                        location.append(i.place.full_name)
-                    elif (i.user.location != ""):
-                        location.append(i.user.location)
-                    else:
-                        location.append('No defined')
+    print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print('Querying for ' + operator + ' on ' + str(search_date) + ' with ' + query)
+
+    cursor = tweepy.Cursor(api.search, since_id=None, q=query, geocode=coordinates, lang=language,
+                           until=until_date, tweet_mode='extended', wait_on_rate_limit=True). \
+        items(number_of_tweets)
+
+    while True:
+        try:
+            i = cursor.next()
+            if i.created_at.date() == search_date:
+                tweet_id.append(i.id)
+                tweet_id_str.append(i.id_str)
+                tweet_time.append(i.created_at)
+                tweet_text.append(i.full_text)
+                user_id.append(i.user.id)
+                user_name.append(i.user.name)
+                user_screen_name.append(i.user.screen_name)
+                likes.append(i.favorite_count)
+                retweets.append(i.retweet_count)
+                followers.append(i.user.followers_count)
+                in_reply_to_screen_name.append(i.in_reply_to_screen_name)
+                in_reply_to_status_id_str.append(i.in_reply_to_status_id_str)
+
+                if i.place is not None:
+                    location.append(i.place.full_name)
+                elif i.user.location != "":
+                    location.append(i.user.location)
                 else:
-                    break
-            except tweepy.TweepError as e:
-                print(datetime.now())
-                print('Twitter error: ', e.args)
-                print('PAUSED --> On ' + operator + ' collecting ' + str(len(tweet_id)) + ' tweets and CONTINUING')
-                tm.sleep(60 * 15)
-                continue
-            except StopIteration:
+                    location.append('No defined')
+            else:
                 break
+        except tweepy.TweepError as e:
+            print(datetime.now())
+            print('Twitter error: ', e.args)
+            print('PAUSED --> On ' + operator + ' collecting ' + str(len(tweet_id)) + ' tweets and CONTINUING')
+            tm.sleep(60 * 15)
+            continue
+        except StopIteration:
+            break
 
-        # If len(list) > number_of_tweets --> no fue suficiente, hay que buscar de nuevo con otro limite.
-        print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        print('For ' + operator + ' collected ' + str(len(tweet_id)) + ' tweets')
-        print()
-        print()
 
-        df = pd.DataFrame({
-            'tweet_id': tweet_id,
-            'tweet_id_str': tweet_id_str,
-            'tweet_time': tweet_time,
-            'tweet_text': tweet_text,
-            'user_id': user_id,
-            'user_name': user_name,
-            'user_screen_name': user_screen_name,
-            'location': location,
-            'likes': likes,
-            'retweets': retweets,
-            'followers': followers,
-            'in_reply_to_screen_name': in_reply_to_screen_name,
-            'in_reply_to_status_id_str': in_reply_to_status_id_str,
-        })
+def csv_file(state, destination_folder, search_date, tweet_id, tweet_id_str, tweet_time, tweet_text, user_id,
+             user_name, user_screen_name, location, likes, retweets, followers, in_reply_to_screen_name,
+             in_reply_to_status_id_str):
+    import pandas as pd
+    from datetime import datetime
 
-        #  Replace \n by space, to remove line jumps
-        df = df.replace('\n', '', regex=True)
+    # If len(list) > number_of_tweets --> no fue suficiente, hay que buscar de nuevo con otro limite.
+    print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    print('For ' + state + ' collected ' + str(len(tweet_id)) + ' tweets')
+    print()
+    print()
 
-        #  Save DataFrame as .tsv
-        df.to_csv(destination_folder + operator + '_' + str(search_date).replace('-', '_') + '.tsv', index=False,
-                  encoding='utf_8_sig', sep='\t')
+    df = pd.DataFrame({
+        'tweet_id': tweet_id,
+        'tweet_id_str': tweet_id_str,
+        'tweet_time': tweet_time,
+        'tweet_text': tweet_text,
+        'user_id': user_id,
+        'user_name': user_name,
+        'user_screen_name': user_screen_name,
+        'location': location,
+        'likes': likes,
+        'retweets': retweets,
+        'followers': followers,
+        'in_reply_to_screen_name': in_reply_to_screen_name,
+        'in_reply_to_status_id_str': in_reply_to_status_id_str,
+    })
+
+    #  Replace \n by space, to remove line jumps
+    df = df.replace('\n', '', regex=True)
+
+    #  Save DataFrame as .tsv
+    df.to_csv(destination_folder + state + '_' + str(search_date).replace('-', '_') + '.tsv', index=False,
+              encoding='utf_8_sig', sep='\t')
 
 
 if __name__ == '__main__':
