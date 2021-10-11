@@ -73,7 +73,6 @@ def extract_twitter_data(warehouse_path, extract_data_from):
     todays_date = datetime.date.today()
     print('Extraction date attempt : ', extract_data_from)
     print("Today's date : ", todays_date)
-
     #  Conditions ...
     if extract_data_from == 'today':
         folder_exist = check_todays_dated_folder_existance(warehouse_path)
@@ -131,36 +130,34 @@ def start_extraction(search_date, destination_folder):
     auth = tweepy.OAuthHandler(API_KEY, API_SECRET_KEY)
     auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
     api = tweepy.API(auth)
-
     # Search configuration
     until_date = str(search_date + timedelta(days=1))
     print('Search range: from', search_date, ' to ', until_date)
     print()
 
     # Collect N Tweets with id, time, text, user data, likes, retweets and location (when available) FOR EACH OPERATOR
-    # Create empty lists
-    tweet_id = []
-    # tweet_id_str = []
-    tweet_time = []
-    tweet_text = []
-    # user_id = []
-    # user_name = []
-    # user_screen_name = []
-    # likes = []
-    # retweets = []
-    # followers = []
-    # in_reply_to_screen_name = []
-    # in_reply_to_status_id_str = []
-    location = []
-
     places = api.geo_search(query="USA", granularity="country")
     place_id = places[0].id
     language = 'en'
-    search_terms = ['Moderna vaccine', 'Pfizer vaccine', 'J&J vaccine', 'Astrazeneca vaccine', 'Sinovac vaccine',
-                   'Sputnik vaccine', 'Cansino vaccine', 'Sinopharm vaccine', 'vaccine side effects']
-    number_of_tweets = 100  # you decide the limit of tweets to extract per day
-    until_date = str(search_date + timedelta(days=1))
+    search_terms = ['Moderna vaccine', 'Pfizer vaccine', 'J&J vaccine', 'AstraZeneca vaccine', 'vaccine side effects']
+    number_of_tweets = 7000  # you decide the limit of tweets to extract per day
     for index in range(len(search_terms)):
+
+        # Create empty lists
+        tweet_id = []
+        # tweet_id_str = []
+        tweet_time = []
+        tweet_text = []
+        # user_id = []
+        # user_name = []
+        # user_screen_name = []
+        # likes = []
+        retweets = []
+        # followers = []
+        # in_reply_to_screen_name = []
+        # in_reply_to_status_id_str = []
+        location = []
+
         query = '{} place:{}'.format(search_terms[index], place_id)
         print('timestamp: ', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         print('Querying for ' + places[0].country_code + ' on ' + str(search_date) + ' with ' + query)
@@ -181,7 +178,7 @@ def start_extraction(search_date, destination_folder):
                     # user_name.append(i.user.name)
                     # user_screen_name.append(i.user.screen_name)
                     # likes.append(i.favorite_count)
-                    # retweets.append(i.retweet_count)
+                    retweets.append(i.retweet_count)
                     # followers.append(i.user.followers_count)
                     # in_reply_to_screen_name.append(i.in_reply_to_screen_name)
                     # in_reply_to_status_id_str.append(i.in_reply_to_status_id_str)
@@ -220,7 +217,7 @@ def start_extraction(search_date, destination_folder):
             # 'user_screen_name': user_screen_name,
             'location': location,
             # 'likes': likes,
-            # 'retweets': retweets,
+            'retweets': retweets,
             # 'followers': followers,
             # 'in_reply_to_screen_name': in_reply_to_screen_name,
             # 'in_reply_to_status_id_str': in_reply_to_status_id_str,
@@ -231,7 +228,7 @@ def start_extraction(search_date, destination_folder):
 
         #  Save DataFrame as .csv
         df.to_csv(destination_folder + places[0].country_code + '_' + search_terms[index] + '_' +
-                  str(search_date).replace('-', '_') + '.csv', index=False, encoding='utf_8_sig', sep='\t')
+                  str(search_date).replace('-', '_') + '.csv', index=False, encoding='utf_8_sig')
 
 
 def filter_tweets():
